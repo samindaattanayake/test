@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <title> Load Sensor Unit </title>
+  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900|Roboto+Slab:400,700" />
+  <link href="../assets/css/nucleo-icons.css" rel="stylesheet" />
+  <link href="../assets/css/nucleo-svg.css" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
+<style>
+.save-button, .clear-button ,.download-button{
+    display: inline-block;
+    width: 120px;
+    margin: 0 10px;
+    padding: 10px;
+    color: #fff;
+    text-align: center;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    outline: none;
+}
+
+.save-button {
+    background-color: #e91e63;
+}
+
+.clear-button {
+    background-color: #4CAF50;
+}
+
+
+.download-button {
+    background-color: #455558;
+}
+
+
+.save-button:hover {
+    background-color: #d81b60;
+    transform: translateY(-2px);
+}
+
+.clear-button:hover {
+    background-color: #388e3c;
+    transform: translateY(-2px);
+}
+
+.download-button:hover {
+    background-color: #3a484a;
+    transform: translateY(-2px);
+}
+
+.save-button:active, .clear-button:active,.download-button:active {
+    transform: translateY(2px);
+}
+
+.save-button:focus, .clear-button:focus, .download-button:focus {
+    box-shadow: 0 0 0 3px rgba(21, 156, 228, 0.4);
+}
+
+.save-button:disabled, .clear-button:disabled, .download-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.save-button:disabled:hover, .clear-button:disabled:hover, .download-button:disabled:hover {
+    background-color: #ccc;
+    transform: none;
+}
+
+
+
+  
+</style>
+
+
+</head>
+<body class="g-sidenav-show bg-gray-200 g-sidenav-pinned">
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+  import {  getDatabase, ref, onValue, set, get, child, update } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPp9RQS8cyQK9Cld65CLq80va-bLS8Vsw",
+    authDomain: "load-sensor-unit-59d67.firebaseapp.com",
+    databaseURL: "https://load-sensor-unit-59d67-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "load-sensor-unit-59d67",
+    storageBucket: "load-sensor-unit-59d67.appspot.com",
+    messagingSenderId: "270733095854",
+    appId: "1:270733095854:web:fa147a8ad967a6ac084e3f"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  const voltageRef = ref(database, 'voltage');
+  const currentRef = ref(database, 'current');
+  const resistanceRef= ref(database,'resistance')
+
+  onValue(voltageRef, (snapshot) => {
+    const voltage = snapshot.val();
+    document.getElementById('voltage').innerHTML = voltage ? voltage + " V" : "0 V";
+  }, (error) => {
+    console.error("Error fetching voltage data: ", error);
+    document.getElementById('voltage').innerHTML = "Error";
+  });
+
+  onValue(currentRef, (snapshot) => {
+    const current = snapshot.val();
+    document.getElementById('current').innerHTML = current ? current + " mA" : "0 mA";
+  }, (error) => {
+    console.error("Error fetching current data: ", error);
+    document.getElementById('current').innerHTML = "Error";
+  });
+
+  onValue(resistanceRef, (snapshot) => {
+    const resistance = snapshot.val();
+    document.getElementById('resistance').innerHTML = resistance ? resistance + "  kΩ" : "0  Ω";
+  }, (error) => {
+    console.error("Error fetching resistance data: ", error);
+    document.getElementById('resistance').innerHTML = "Error";
+  });
+
+
+
+  //voltage check
+  function checkVoltageRange() {
+    const minVoltage = parseFloat(document.getElementById('minVoltage').value);
+    const maxVoltage = parseFloat(document.getElementById('maxVoltage').value);
+
+    if (minVoltage > maxVoltage) {
+      alert("Minimum voltage cannot be greater than maximum voltage.");
+      return;
+    }
+    if (minVoltage == maxVoltage) {
+      alert("Minimum voltage cannot be equal to maximum voltage.");
+      return;
+    }
+
+    get(voltageRef).then((snapshot) => {
+      const voltageData = snapshot.val();
+      const resultElement = document.getElementById('voltageCheckResult');
+      if (voltageData >= minVoltage && voltageData <= maxVoltage) {
+        resultElement.textContent = 'Pass';
+        resultElement.classList.remove('alert-danger');
+        resultElement.classList.add('alert-success');
+      } else {
+        resultElement.textContent = 'Fail';
+        resultElement.classList.remove('alert-success');
+        resultElement.classList.add('alert-danger');
+      }
+    }).catch((error) => {
+      console.error("Error fetching voltage data: ", error);
+      document.getElementById('voltageCheckResult').textContent = "Error";
+      document.getElementById('voltageCheckResult').classList.remove('alert-success', 'alert-danger');
+    });
+  }
+
+  window.checkVoltageRange = checkVoltageRange; // Make function global
+
+
+  //current check
+  function checkCurrentRange() {
+    const minCurrent = parseFloat(document.getElementById('minCurrent').value);
+    const maxCurrent = parseFloat(document.getElementById('maxCurrent').value);
+
+    if (minCurrent > maxCurrent) {
+      alert("Minimum current cannot be greater than maximum voltage.");
+      return;
+    }
+    if (minCurrent == maxCurrent) {
+      alert("Minimum current cannot be equal to maximum voltage.");
+      return;
+    }
+
+    get(currentRef).then((snapshot) => {
+      const currentData = snapshot.val();
+      const resultElement = document.getElementById('currentCheckResult');
+      if (currentData >= minCurrent && currentData <= maxCurrent) {
+        resultElement.textContent = 'Pass';
+        resultElement.classList.remove('alert-danger');
+        resultElement.classList.add('alert-success');
+      } else {
+        resultElement.textContent = 'Fail';
+        resultElement.classList.remove('alert-success');
+        resultElement.classList.add('alert-danger');
+      }
+    }).catch((error) => {
+      console.error("Error fetching voltage data: ", error);
+      document.getElementById('currentCheckResult').textContent = "Error";
+      document.getElementById('currentCheckResult').classList.remove('alert-success', 'alert-danger');
+    });
+  }
+
+  window.checkCurrentRange = checkCurrentRange; // Make function global
+
+  async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const savedData = JSON.parse(localStorage.getItem('savedData')) || [];
+      
+      if (savedData.length === 0) {
+        alert('No data available to download.');
+        return;
+      }
+
+      const doc = new jsPDF();
+
+      const tableColumn = ["Timestamp", "Device ID", "Voltage (V)", "Current (mA)", "Resistance (kΩ)"];
+      const tableRows = [];
+
+      savedData.forEach(data => {
+        const dataRow = [
+          data.timestamp,
+          data.deviceId,
+          data.voltage,
+          data.current,
+          data.resistance
+        ];
+        tableRows.push(dataRow);
+      });
+
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 20,
+        theme: 'grid'
+      });
+
+      doc.save('saved_data.pdf');
+    }
+
+  const saveData = (deviceId) => {
+    const voltage = document.getElementById('voltage').innerText.replace(' V', '');
+    const current = document.getElementById('current').innerText.replace(' mA', '');
+    const resistance = document.getElementById('resistance').innerText.replace(' kΩ', '');
+
+    const timestamp = new Date().toISOString();
+
+    let savedData = JSON.parse(localStorage.getItem('savedData')) || [];
+    const existingDataIndex = savedData.findIndex(data => data.deviceId === deviceId);
+
+    
+      savedData.push({ timestamp, deviceId, voltage, current, resistance });
+    
+
+    
+    localStorage.setItem('savedData', JSON.stringify(savedData));
+    alert('Data saved successfully!');
+    updateDataTable();
+  };
+
+  const clearData = (deviceId) => {
+    let savedData = JSON.parse(localStorage.getItem('savedData')) || [];
+    savedData = savedData.filter(data => data.deviceId !== deviceId);
+    localStorage.setItem('savedData', JSON.stringify(savedData));
+    alert(`Data for device ${deviceId} cleared!`);
+    updateDataTable();
+  };
+
+  const updateDataTable = () => {
+    const tableBody = document.getElementById('data-table-body');
+    tableBody.innerHTML = '';
+
+    const savedData = JSON.parse(localStorage.getItem('savedData')) || [];
+
+    savedData.forEach((dataItem) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${dataItem.timestamp}</td>
+        <td>${dataItem.deviceId}</td>
+        <td>${dataItem.voltage} V</td>
+        <td>${dataItem.current} mA</td>
+        <td>${dataItem.resistance} Ω</td>
+      `;
+      tableBody.appendChild(row);
+    });
+  };
+
+  function selectDevice(deviceId) {
+    const saveButton = document.createElement('button');
+    saveButton.className = 'save-button';
+    saveButton.textContent = 'Save Data';
+    saveButton.addEventListener('click', () => {
+      saveData(deviceId);
+    });
+
+    const clearButton = document.createElement('button');
+    clearButton.className = 'clear-button';
+    clearButton.textContent = 'Clear Data';
+    clearButton.addEventListener('click', () => {
+      clearData(deviceId);
+    });
+
+    const downloadButton = document.createElement('button');
+    downloadButton.className = 'download-button';
+    downloadButton.textContent = 'Download';
+    downloadButton.addEventListener('click', () => {
+      downloadPDF(deviceId);
+    });
+
+    const buttonContainer = document.getElementById('button-container');
+    buttonContainer.innerHTML = '';
+    buttonContainer.appendChild(saveButton);
+    buttonContainer.appendChild(clearButton);
+    buttonContainer.appendChild(downloadButton);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadDevices();
+    updateDataTable(); // Update table when the page loads
+  });
+
+  function loadDevices() {
+    const devices = JSON.parse(localStorage.getItem('devices')) || [];
+    const deviceDropdown = document.getElementById('device-list');
+    deviceDropdown.innerHTML = '';
+
+    devices.forEach(device => {
+      addDeviceToDropdown(device.id);
+    });
+  }
+
+  function addDeviceToDropdown(deviceID) {
+    const dropdown = document.getElementById('device-list');
+    const deviceLink = document.createElement('a');
+    deviceLink.href = "#";
+    deviceLink.className = 'dropdown-item';
+    deviceLink.textContent = deviceID;
+    deviceLink.addEventListener('click', () => {
+      selectDevice(deviceID);
+    });
+    dropdown.appendChild(deviceLink);
+  }
+
+  
+
+  function addNewDevice() {
+    const deviceID = document.getElementById('deviceID').value;
+
+    if (deviceID) {
+      const devices = JSON.parse(localStorage.getItem('devices')) || [];
+      if (devices.some(device => device.id === deviceID)) {
+        alert('Device already exists in the system.');
+        return;
+      }
+      devices.push({ id: deviceID });
+      localStorage.setItem('devices', JSON.stringify(devices));
+      addDeviceToDropdown(deviceID);
+      document.getElementById('deviceID').value = '';
+      alert('Device added successfully!');
+    } else {
+      alert('Please enter a device ID.');
+    }
+  }
+
+  window.addNewDevice = addNewDevice; // Make function global
+</script>
+
+
+                      <!-- Menu -->
+
+
+<aside class="sidenav navbar navbar-vertical navbar-expand-xs border-0 border-radius-xl my-3 fixed-start ms-3 bg-gradient-dark" id="sidenav-main">
+  <div class="sidenav-header">
+    <i class="fas fa-times p-3 cursor-pointer text-white opacity-5 position-absolute end-0 top-0 d-xl-none" aria-hidden="true" id="iconSidenav"></i>
+    <a class="navbar-brand m-0" target="_blank">
+      <span class="me-sm-4 font-weight-bold text-white">Menu</span>
+    </a>
+  </div>
+  <hr class="horizontal light mt-0 mb-2">
+  <div class="collapse navbar-collapse w-auto max-height-vh-100" id="sidenav-collapse-main">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link text-white active bg-gradient-primary" href="../pages/Dashboard.html">
+          <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+            <i class="material-icons opacity-10">dashboard</i>
+          </div>
+          <span class="nav-link-text ms-1">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-white " href="../pages/Inventory.html">
+          <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+            <i class="material-icons opacity-10">inventory</i>
+          </div>
+          <span class="nav-link-text ms-1">Inventory</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</aside>
+                      <!-- Navigation bar- only has menu swipe option -->
+
+<main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+  <nav class="navbar navbar-main navbar-expand-lg px-0 mx-4 shadow-none " id="navbarBlur" data-scroll="true">
+    <div class="container-fluid py-2 px-3">
+      <div class="collapse navbar-collapse mt-sm-0 mt-2 me-md-0 me-sm-4" id="navbar">
+        <div class="ms-md-auto pe-md-3 d-flex align-items-center"></div>
+        <ul class="navbar-nav justify-content-end">
+          <li class="nav-item d-flex align-items-center"></li>
+          <li class="mt-2"><span></span></li>
+          <li class="nav-item d-xl-none ps-3 d-flex align-items-center">
+            <a href="javascript:;" class="nav-link text-body p-0" id="iconNavbarSidenav">
+              <div class="sidenav-toggler-inner">
+                <i class="sidenav-toggler-line"></i>
+                <i class="sidenav-toggler-line"></i>
+                <i class="sidenav-toggler-line"></i>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <div class="container-fluid py-3">
+    <div class="card">
+      <div class="card-body px-0 pb-4">
+        <div class="card-header p-3 pt-2">
+          <h2 class="font-weight-bolder mb-0">Load Sensor Unit</h2>
+        </div>
+        <hr class="dark horizontal my-0">
+        <div class="card-footer p-3">
+          <h4 class="mb-3 text-capitalize">Voltage and Current Readings</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+                      <!-- voltage and current data fetched from firebase -->
+
+  <div class="container-fluid py-4">
+    <div class="row">
+      <div class="col-xl-6 col-sm-6 mb-xl-0 mb-4">
+        <div class="card">
+          <div class="card-header p-3 pt-2">
+            <div class="icon icon-lg icon-shape bg-gradient-primary shadow-primary text-center border-radius-xl mt-n4 position-absolute">
+              <i class="material-icons opacity-10">V</i>
+            </div>
+            <div class="text-end pt-1">
+              <h4>Voltage</h4>
+              <h5 id="voltage">Loading...</h5>
+            </div>
+          </div>
+          <hr class="dark horizontal my-0">
+          <div class="card-footer p-3"></div>
+        </div>
+      </div>
+      <div class="col-xl-6 col-sm-6 mb-xl-0 mb-4">
+        <div class="card">
+          <div class="card-header p-3 pt-2">
+            <div class="icon icon-lg icon-shape bg-gradient-success shadow-success text-center border-radius-xl mt-n4 position-absolute">
+              <i class="material-icons opacity-10">A</i>
+            </div>
+            <div class="text-end pt-1">
+              <h4>Current</h4>
+              <h5 id="current">Loading...</h5>
+            </div>
+          </div>
+          <hr class="dark horizontal my-0">
+          <div class="card-footer p-3"></div>
+        </div>
+      </div>
+
+      <div class="col-xl-6 col-sm-6 mb-xl-0 mb-4">
+        <div class="card">
+          <div class="card-header p-3 pt-2">
+            <div class="icon icon-lg icon-shape bg-gradient-success shadow-success text-center border-radius-xl mt-n4 position-absolute">
+              <i class="material-icons opacity-10">Ω</i>
+            </div>
+            <div class="text-end pt-1">
+              <h4>Resistance</h4>
+              <h5 id="resistance">Loading...</h5>
+            </div>
+          </div>
+          <hr class="dark horizontal my-0">
+          <div class="card-footer p-3"></div>
+        </div>
+      </div>
+    </div>
+                      <!-- project table -->
+
+    <div class="container-fluid py-3 px-0">
+      <div class="row mb-4">
+        <div class="col-lg-8 col-md-6 mb-md-0 mb-4">
+          <div class="card">
+            <div class="card-header pb-0">
+              <div class="row">
+                <div class="col-lg-6 col-7">
+                  <h6>Projects</h6>
+                  <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" id="deviceDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                      Devices
+                    </button>
+                    <ul class="dropdown-menu" id="device-list" aria-labelledby="deviceDropdown">
+                      <li><input type="text" id="deviceSearch" class="form-control" placeholder="Search devices..."></li>
+
+                      <!-- Devices will be listed here -->
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body px-0 pb-8">
+              <div class="table-responsive">
+                <table class="table align-items-center mb-0">
+                  <thead>
+                    <tr>
+                      <th class="text-center text-uppercase text-secondary text-lg font-weight-bolder opacity-10">Time</th>
+                      <th class="text-center text-uppercase text-secondary text-lg font-weight-bolder opacity-10">Device ID</th>
+                      <th class="text-center text-uppercase text-secondary text-lg font-weight-bolder opacity-10">Voltage</th>
+                      <th class="text-center text-uppercase text-secondary text-lg font-weight-bolder opacity-10">Current</th>
+                      <th class="text-center text-uppercase text-secondary text-lg font-weight-bolder opacity-10">Resistance</th>
+
+                    </tr>
+                  </thead>
+                  <tbody class="text-center" id="data-table-body">
+                    <!-- Data rows will be added here dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        
+          <div class="col-lg-4 col-md-6 ">
+          <div class="card">
+          <div class="card-header pb-0 ">
+            <h6>Orders overview</h6>
+            
+                      <div class="row px-4" id="button-container">
+                        <button class="save-button">Save Data</button>
+                        <button class="clear-button">Clear Data</button>
+                          <div>      
+                            <div class="row py-2 px-0">
+                              <button class="download-button">Download</button>
+                            </div>                 
+                          </div>
+
+                      </div>
+          </div>
+          <div class="card-footer p-3"></div>
+        </div>
+        </div>
+
+
+
+
+
+        
+      </div>
+    </div>
+    
+    <div class="container-fluid py-0 px-0">
+      <div class="row mb-4">
+        <div class="col-lg-12 col-md-6 mb-md-0 mb-4">
+          <div class="card">
+            <div class="card-header pb-0">
+              <div class="row">
+                <div class="col-lg-6 col-7">
+              <h6>Voltage Range Check</h6>
+          </div>
+          <div class="card-body">
+              <div class="input-group mb-3">
+                  <input type="number" class="form-control" placeholder="Min Voltage" id="minVoltage" min="4" max="14">
+                  <input type="number" class="form-control" placeholder="Max Voltage" id="maxVoltage" min="4" max="14">
+              </div>
+              <button class="btn btn-primary" onclick="checkVoltageRange()">Check Voltage</button>
+              <div class="alert alert-info mt-3 text-center" role="alert" id="voltageCheckResult">
+                  <!-- Result will be displayed here -->
+              </div>
+          </div>
+      </div>
+  </div>
+  <div class="card-footer p-3"></div>
+
+</div>
+</div>
+</div>
+</div>
+
+<div class="container-fluid py-0 px-0">
+  <div class="row mb-4">
+    <div class="col-lg-12 col-md-6 mb-md-0 mb-4">
+      <div class="card">
+        <div class="card-header pb-0">
+          <div class="row">
+            <div class="col-lg-6 col-7">
+          <h6>Current Range Check</h6>
+      </div>
+      <div class="card-body">
+          <div class="input-group mb-3">
+              <input type="number" class="form-control" placeholder="Min Current" id="minCurrent" min="0" max="400">
+              <input type="number" class="form-control" placeholder="Max Current" id="maxCurrent" min="0" max="400">
+          </div>
+          <button class="btn btn-primary" onclick="checkCurrentRange()">Check Current</button>
+          <div class="alert alert-info mt-3 text-center" role="alert" id="currentCheckResult">
+              <!-- Result will be displayed here -->
+          </div>
+      </div>
+  </div>
+</div>
+<div class="card-footer p-3"></div>
+
+</div>
+</div>
+</div>
+</div>
+    
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  
+  
+
+
+
+</main>
+
+
+
+<div class="fixed-plugin">
+  <a class="fixed-plugin-button text-dark position-fixed px-3 py-2">
+    <i class="material-icons py-2">settings</i>
+  </a>
+  <div class="card shadow-lg">
+    <div class="card-header pb-0 pt-3">
+      <div class="float-start">
+        <h5 class="mt-3 mb-0">Device Configurator</h5>
+        <p>Add new device to proceed</p>
+      </div>
+
+      <!-- End Toggle Button -->
+    
+
+    </div>
+    <div class="col-9 text-end py-5">
+      <button class="btn bg-gradient-primary mb-0" data-bs-toggle="modal" data-bs-target="#addDeviceModal"><i class="material-icons text-sm">add</i>&nbsp;&nbsp;Add New Device</button>
+    
+    </div>
+        
+    
+  
+    <hr class="horizontal dark my-8">
+
+    <div class="card-body pt-sm-3 pt-0 py-4">
+      <!-- Sidebar Backgrounds -->
+      <div>
+        <h6 class="mb-0">Sidebar Colors</h6>
+      </div>
+      <a href="javascript:void(0)" class="switch-trigger background-color">
+        <div class="badge-colors my-2 text-start">
+          <span class="badge filter bg-gradient-primary active" data-color="primary" onclick="sidebarColor(this)"></span>
+          <span class="badge filter bg-gradient-dark" data-color="dark" onclick="sidebarColor(this)"></span>
+          <span class="badge filter bg-gradient-info" data-color="info" onclick="sidebarColor(this)"></span>
+          <span class="badge filter bg-gradient-success" data-color="success" onclick="sidebarColor(this)"></span>
+          <span class="badge filter bg-gradient-warning" data-color="warning" onclick="sidebarColor(this)"></span>
+          <span class="badge filter bg-gradient-danger" data-color="danger" onclick="sidebarColor(this)"></span>
+        </div>
+      </a>
+      <!-- Sidenav Type -->
+      <div class="mt-3">
+        <h6 class="mb-0">Sidenav Type</h6>
+      </div>
+      <div class="d-flex">
+        <button class="btn bg-gradient-dark px-3 mb-2 active" data-class="bg-gradient-dark" onclick="sidebarType(this)">Dark</button>
+        <button class="btn bg-gradient-dark px-3 mb-2 ms-2" data-class="bg-transparent" onclick="sidebarType(this)">Transparent</button>
+        <button class="btn bg-gradient-dark px-3 mb-2 ms-2" data-class="bg-white" onclick="sidebarType(this)">White</button>
+      </div>
+      
+      <div class="mt-2 d-flex">
+        <h6 class="mb-0">Light / Dark</h6>
+        <div class="form-check form-switch ps-0 ms-auto my-auto">
+          <input class="form-check-input mt-1 ms-auto" type="checkbox" id="dark-version" onclick="darkMode(this)">
+        </div>
+      </div>
+      <hr class="horizontal dark my-sm-4">
+      
+    </div>
+  </div>
+</div>
+
+<!-- Modal for adding a new device -->
+ <div class="modal fade" id="addDeviceModal" tabindex="-1" aria-labelledby="addDeviceModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addDeviceModalLabel">Add New Device</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="mb-3">
+                <label for="deviceID" class="form-label">Device ID</label>
+                <input type="text" class="form-control" id="deviceID" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button-d" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button-d" class="btn btn-primary" onclick="addNewDevice()">Save Device</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<script src="../assets/js/core/popper.min.js"></script>
+<script src="../assets/js/core/bootstrap.min.js"></script>
+<script src="../assets/js/plugins/perfect-scrollbar.min.js"></script>
+<script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
+<script src="../assets/js/material-dashboard.min.js?v=3.1.0"></script>
+
+
+
+
+<script>
+  var win = navigator.platform.indexOf('Win') > -1;
+  if (win && document.querySelector('#sidenav-scrollbar')) {
+    var options = { damping: '0.5' }
+    Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+  }
+</script>
+<script async defer src="https://buttons.github.io/buttons.js"></script>
+<script src="../assets/js/material-dashboard.min.js?v=3.0.0"></script>
+</body>
+</html>
